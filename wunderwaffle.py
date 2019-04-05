@@ -54,13 +54,14 @@ async def spawn_worker(uri, my_user_id):
   try:
     my_balance = 0
     my_items = []
+    item_to_buy = None
+    item_price = 0
     async with websockets.connect(uri) as websocket:
-      done = False
       while True:
           log.info("active tasks {}/{}".format(len([task for task in asyncio.Task.all_tasks() if not task.done()]), len(asyncio.Task.all_tasks())))
           log.info("active workers {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
           time.sleep(1)
-          data = await websocket.recv()        
+          data = await websocket.recv()
           if data[0] == "{":
               data = json.loads(data)
               if "type" in data:
@@ -81,14 +82,39 @@ async def spawn_worker(uri, my_user_id):
                   await send_data(websocket, "C10 {} 1".format(data[3]), my_user_id)
               elif data == "BROKEN":
                   return await spawn_worker(uri, my_user_id)
+              elif data == "NOT_ENOUGH_COINS":
+                  continue
+              elif data[0] == "M" and data[1] == "I":
+                data = data.split()
+                await send_data(websocket, "C10 {} 1".format(data[1]), my_user_id)
               elif data[0] == "C":
                 data = " ".join(str(data).split(" ")[1:])
                 data = json.loads(data)
                 my_balance = float(data["score"]) / 1000
                 if "items" in data:
                   my_items = data["items"]
+                continue
               elif data[0] == "T" and data[1] == "R":
-                 my_balance += float(str(data).split(" ")[1]) / 1000        
+                 my_balance += float(str(data).split(" ")[1]) / 1000                            
+                 
+          if my_balance > 0 and item_to_buy:                   
+            if my_balance < item_price:
+              continue
+            await send_data(websocket, "P{} B {}".format(random.randint(1, 20), item_to_buy), my_user_id)
+            log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
+
+          some_count = random.randint(100, 1000)
+          if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
+            target = random.choice(slave_ids)
+            if target == my_user_id:
+              continue
+            await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
+            log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
+           
+          if my_balance > 10000 and my_user_id != master_user_id and random.randint(1,10)%2:
+            count = random.randint(1000, 10000)
+            await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
+            log.info("id{}: send out to master {} coins".format(my_user_id, count))  
           
           optimal_items = find_optimal_items(my_items, my_balance)
           optimal_items[0] *= 1000
@@ -115,42 +141,6 @@ async def spawn_worker(uri, my_user_id):
             item_to_buy = "datacenter"
 
           item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
-          
-          if my_balance > item_price:         
-            await send_data(websocket, "P B {}".format(item_to_buy), my_user_id)
-            log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
-            data = await websocket.recv()
-            if data[0] == "C":
-              data = " ".join(str(data).split(" ")[1:])
-              data = json.loads(data)
-              my_balance = float(data["score"]) / 1000    
-              my_items = data["items"]
-            continue 
-        
-          some_count = random.randint(100, 1000)
-          if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
-            target = random.choice(slave_ids)
-            if target == my_user_id:
-              continue
-            await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
-            log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
-            data = await websocket.recv()
-            if data[0] == "C":
-               data = " ".join(str(data).split(" ")[1:])
-               data = json.loads(data)
-               my_balance = float(data["score"]) / 1000
-            continue
-
-          if my_balance > 10000 and my_user_id != master_user_id and random.randint(1,10)%2:
-            count = random.randint(1000, 10000)
-            await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
-            log.info("id{}: send out to master {} coins".format(my_user_id, count))
-            data = await websocket.recv()
-            if data[0] == "C":
-              data = " ".join(str(data).split(" ")[1:])
-              data = json.loads(data)
-              my_balance = float(data["score"]) / 1000
-            continue                 
   except KeyboardInterrupt:
         log.info("^C catched")
         destroy_tasks()
@@ -170,7 +160,7 @@ async def dispatch_worker(token, user_id):
       log.error("failed to dispatch worker vk.com/id{}".format(user_id))
       log.error("API answer: {}".format(response_json))
       time.sleep(5)
-      return await dispatch_worker(uri, user_id)
+      return await dispatch_worker(url, user_id)
 
     app_key = response_json["response"]["object"]["mobile_iframe_url"].split("?")[1]
      
