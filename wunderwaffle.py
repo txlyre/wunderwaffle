@@ -18,6 +18,7 @@ if os.name == "nt":
   asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
 idle_mode = False
+idle_main_mode = False
 no_support = False
 drop_amount = 10000
 tasks = []
@@ -109,6 +110,8 @@ async def spawn_worker(uri, my_user_id):
             log.info("id{}: send out to master {} coins".format(my_user_id, count))            
 
           if not idle_mode:
+            if idle_main_mode and my_user_id == master_user_id:
+              continue
             price_a = calc_price(available_items["cursor"], my_items.count("cursor"))
             price_b = calc_price(available_items["cpu"], my_items.count("cpu"))
             price_c = calc_price(available_items["cpu_stack"], my_items.count("cpu_stack"))
@@ -116,21 +119,21 @@ async def spawn_worker(uri, my_user_id):
             price_e = calc_price(available_items["server_vk"], my_items.count("server_vk"))
             price_f = calc_price(available_items["quantum_pc"], my_items.count("quantum_pc"))
             price_g = calc_price(available_items["datacenter"], my_items.count("datacenter"))
-     
+
+            item_to_buy = "datacenter"
             if price_g / price_f >= 2:
               item_to_buy = "quantum_pc"
-            elif price_f / price_e >= 5:
+            if price_f / price_e >= 5:
               item_to_buy = "server_vk"
-            elif price_e / price_d >= 3:
+            if price_e / price_d >= 3:
               item_to_buy = "computer"
-            elif price_d / price_c >= 3:
+            if price_d / price_c >= 3:
               item_to_buy = "cpu_stack"
-            elif price_c / price_b >= 30:
+            if price_c / price_b >= 30:
               item_to_buy = "cpu"
-            elif price_b / price_a >= 3:
+            if price_b / price_a >= 3:
               item_to_buy = "cursor"
-            else:
-              item_to_buy = "datacenter"
+              
 
             item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
             log.info("id{}: next target is {} for cost {} coins".format(my_user_id, item_to_buy, item_price))
@@ -220,7 +223,7 @@ print("by @txlyre, www: txlyre.website\n")
 
 if len(sys.argv) >= 2:
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "ina:")
+    opts, args = getopt.getopt(sys.argv[1:], "inma:")
   except getopt.GetoptError as e:
     log.warning("{}".format(e))
   
@@ -231,6 +234,9 @@ if len(sys.argv) >= 2:
     elif name == "-n":
       no_support = True
       log.info("no_support enabled")
+    elif name == "-m":
+      idle_main_mode = True
+      log.info("idle_main_mode enabled")
     elif name == "-a":
       try:
         drop_amount = round(float(value), 3)
