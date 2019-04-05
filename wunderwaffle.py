@@ -12,6 +12,9 @@ import math
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger()
 
+if os.name == "nt":
+  asyncio.set_event_loop(asyncio.ProactorEventLoop())
+
 tasks = []
 slave_ids = []
 tasks_list = []
