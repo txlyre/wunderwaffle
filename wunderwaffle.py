@@ -156,10 +156,12 @@ async def spawn_worker(uri, my_user_id):
     log.error("error: {}".format(e))
     time.sleep(5)
     return await spawn_worker(uri, my_user_id)       
-  raise Exception("???????, ????, ?????? ??? ??????!!!")
+  log.errror("reached unreachable")
+  time.sleep(5)
+  return await spawn_worker(uri, my_user_id)       
             
 async def dispatch_worker(token, user_id):
-    url = "https://api.vk.com/method/execute.resolveScreenName?access_token={}&v=5.55&screen_name=app6915965_-147591239&owner_id=-147591239&func_v=3".format(token)
+    url = "https://api.vk.com/method/execute.resolveScreenName?access_token={}&v=5.55&screen_name=app6915965_-176897109&owner_id=-176897109&func_v=3".format(token)
     response_json = requests.get(url).json()
     if "error" in response_json:
       log.error("failed to dispatch worker vk.com/id{}".format(user_id))
