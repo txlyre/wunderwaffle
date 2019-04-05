@@ -56,7 +56,7 @@ async def spawn_worker(uri, my_user_id):
       while True:
           log.info("active tasks {}/{}".format(len([task for task in asyncio.Task.all_tasks() if not task.done()]), len(asyncio.Task.all_tasks())))
           log.info("active workers {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
-          time.sleep(1)
+          time.sleep(0.5)
           data = await websocket.recv()
           if data[0] == "{":
               data = json.loads(data)
@@ -94,6 +94,20 @@ async def spawn_worker(uri, my_user_id):
               elif data[0] == "T" and data[1] == "R":
                  my_balance += float(str(data).split(" ")[1]) / 1000                            
              
+          if not no_support:
+            some_count = random.randint(100, 1000)
+            if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
+              target = random.choice(slave_ids)
+              if target == my_user_id:
+                continue
+              await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
+              log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
+           
+          if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:
+            count = random.randint(drop_amount / 10, drop_amount)
+            await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
+            log.info("id{}: send out to master {} coins".format(my_user_id, count))            
+
           if not idle_mode:
             price_a = calc_price(available_items["cursor"], my_items.count("cursor"))
             price_b = calc_price(available_items["cpu"], my_items.count("cpu"))
@@ -127,19 +141,6 @@ async def spawn_worker(uri, my_user_id):
               log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
               item_to_buy = None
 
-          if not no_support:
-            some_count = random.randint(100, 1000)
-            if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
-              target = random.choice(slave_ids)
-              if target == my_user_id:
-                continue
-              await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
-              log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
-           
-          if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:
-            count = random.randint(drop_amount / 10, drop_amount)
-            await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
-            log.info("id{}: send out to master {} coins".format(my_user_id, count))            
           
   except KeyboardInterrupt:
         log.info("^C catched")
