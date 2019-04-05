@@ -9,6 +9,7 @@ import os, os.path
 import logging
 import math
 import urllib.parse
+import getopt
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger()
@@ -16,6 +17,9 @@ log = logging.getLogger()
 if os.name == "nt":
   asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
+idle_mode = False
+no_support = False
+drop_amount = 10000
 tasks = []
 slave_ids = []
 tasks_list = []
@@ -37,15 +41,6 @@ available_items = {
 def calc_price(price, count):
   return price if count <= 1 else round(1.3 * calc_price(price, count - 1), 3)
 
-def find_optimal_items(my_items, my_balance):
-  temp = []
-  for name in available_items:
-    if my_balance > calc_price(available_items[name], my_items.count(name)):
-      temp.append(calc_price(available_items[name], my_items.count(name)))
-    else:
-      temp.append(0)
-  return temp
-
 async def execute(code):
   proc = await asyncio.create_subprocess_shell("node -e \"var window=1;process.stdout.write(String({}))\"".format(code.replace("\"", "'")), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
   stdout, stderr = await proc.communicate()
@@ -65,6 +60,7 @@ async def spawn_worker(uri, my_user_id):
           data = await websocket.recv()
           if data[0] == "{":
               data = json.loads(data)
+              log.info("id{}: get update: {}".format(my_user_id, data))
               if "type" in data:
                   if data["type"] == "INIT":
                       dataRandom = data["randomId"]
@@ -97,51 +93,54 @@ async def spawn_worker(uri, my_user_id):
                 continue
               elif data[0] == "T" and data[1] == "R":
                  my_balance += float(str(data).split(" ")[1]) / 1000                            
-                 
-          if my_balance > 0 and item_to_buy:                   
-            if my_balance < item_price:
-              continue
-            await send_data(websocket, "P{} B {}".format(random.randint(1, 20), item_to_buy), my_user_id)
-            log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
+             
+          if not idle_mode:
+            price_a = calc_price(available_items["cursor"], my_items.count("cursor"))
+            price_b = calc_price(available_items["cpu"], my_items.count("cpu"))
+            price_c = calc_price(available_items["cpu_stack"], my_items.count("cpu_stack"))
+            price_d = calc_price(available_items["computer"], my_items.count("computer"))
+            price_e = calc_price(available_items["server_vk"], my_items.count("server_vk"))
+            price_f = calc_price(available_items["quantum_pc"], my_items.count("quantum_pc"))
+            price_g = calc_price(available_items["datacenter"], my_items.count("datacenter"))
+     
+            if price_g / price_f >= 2:
+              item_to_buy = "quantum_pc"
+            elif price_f / price_e >= 5:
+              item_to_buy = "server_vk"
+            elif price_e / price_d >= 3:
+              item_to_buy = "computer"
+            elif price_d / price_c >= 3:
+              item_to_buy = "cpu_stack"
+            elif price_c / price_b >= 30:
+              item_to_buy = "cpu"
+            elif price_b / price_a >= 3:
+              item_to_buy = "cursor"
+            else:
+              item_to_buy = "datacenter"
 
-          some_count = random.randint(100, 1000)
-          if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
-            target = random.choice(slave_ids)
-            if target == my_user_id:
-              continue
-            await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
-            log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
+            item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
+            log.info("id{}: next target is {} for cost {} coins".format(my_user_id, item_to_buy, item_price))
+            if my_balance > 0 and item_to_buy:                   
+              if my_balance < item_price:
+                continue
+              await send_data(websocket, "P{} B {}".format(random.randint(1, 20), item_to_buy), my_user_id)
+              log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
+              item_to_buy = None
+
+          if not no_support:
+            some_count = random.randint(100, 1000)
+            if my_balance > some_count and my_user_id != master_user_id and not random.randint(1,40)%5:
+              target = random.choice(slave_ids)
+              if target == my_user_id:
+                continue
+              await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
+              log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
            
-          if my_balance > 10000 and my_user_id != master_user_id and random.randint(1,10)%2:
-            count = random.randint(1000, 10000)
+          if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:
+            count = random.randint(drop_amount / 10, drop_amount)
             await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
-            log.info("id{}: send out to master {} coins".format(my_user_id, count))  
+            log.info("id{}: send out to master {} coins".format(my_user_id, count))            
           
-          optimal_items = find_optimal_items(my_items, my_balance)
-          optimal_items[0] *= 1000
-          optimal_items[1] = math.floor(optimal_items[1] / 3) * 1000
-          optimal_items[2] *= 100;
-          optimal_items[3] = math.floor(optimal_items[3] / 3) * 100
-          optimal_items[4] *= 10
-          optimal_items[5] *= 2
-          position = optimal_items.index(min(optimal_items))
-
-          if position == 0: 
-            item_to_buy = "cursor"
-          elif position == 1:
-            item_to_buy = "cpu"
-          elif position == 2:
-            item_to_buy = "cpu_stack"
-          elif position == 3:
-            item_to_buy = "computer"
-          elif position == 4:
-            item_to_buy = "server_vk"
-          elif position == 5:
-            item_to_buy = "quantum_pc"
-          else:
-            item_to_buy = "datacenter"
-
-          item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
   except KeyboardInterrupt:
         log.info("^C catched")
         destroy_tasks()
@@ -215,16 +214,40 @@ async def run_tasks(task_list):
     destroy_tasks()
     sys.exit(137)
   
-print("Wunderwaffle - a tiny VK Coin miner.")
-print("by @txlyre, www: txlyre.website.")
-print("original by vk.com/illkapaanen\n")
+print("Wunderwaffle - a tiny VK Coin miner, www: github.com/txlyre/wunderwaffle")
+print("by @txlyre, www: txlyre.website\n")
+
+if len(sys.argv) >= 2:
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "ina:")
+  except getopt.GetoptError as e:
+    log.warning("{}".format(e))
+  
+  for name, value in opts:
+    if name == "-i":
+      idle_mode = True
+      log.info("idle_mode enabled")
+    elif name == "-n":
+      no_support = True
+      log.info("no_support enabled")
+    elif name == "-a":
+      try:
+        drop_amount = round(float(value), 3)
+      except ValueError:
+        log.warning("invalid value for '-a': {}".format(value))
+        continue
+      log.info("drop_amount setted to {}".format(drop_amount))
+    else:
+      log.warning("unknown command line argument '{}'".format(name))
+    
+   
 
 if not os.path.isfile("save.dat"):
   log.info("no save found, making a new one...")
   accounts = []
   master_account = ()
   with open("accs.txt", "r") as fd:
-    lines = fd.readlines()
+    lines = list(filter(lambda line: not line.startswith("#"), fd.readlines()))
     master_account = lines.pop(0).split(":")
     master_account = (master_account[0], master_account[1].split(" ")[0])
     for line in lines:
@@ -246,6 +269,9 @@ if not os.path.isfile("save.dat"):
 with open("save.dat", "r") as fd:
   lines = fd.readlines()
   master_account = lines.pop(0).strip().split(" ")
+  if len(master_account) != 2:
+    log.error("invalid master entry in save")
+    sys.exit(1)
   master_token, master_user_id = master_account[0], int(master_account[1])
   
   tasks.append(dispatch_worker(master_token, master_user_id))
@@ -253,6 +279,9 @@ with open("save.dat", "r") as fd:
 
   for line in lines:
     parts = line.strip().split(" ")
+    if len(parts) != 2:
+      log.error("invalid worker entry in save")
+      continue
     token, user_id = parts[0], int(parts[1])
     tasks.append(dispatch_worker(token, user_id))
     slave_ids.append(user_id)
