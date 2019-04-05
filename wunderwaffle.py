@@ -8,6 +8,7 @@ import random
 import os, os.path
 import logging
 import math
+import urllib.parse
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger()
@@ -181,7 +182,7 @@ async def dispatch_worker(token, user_id):
         return await dispatch_worker(uri, user_id)
 
 def auth(login, password):
-  url = "https://oauth.vk.com/token?grant_type=password&client_id=2274003&client_secret=hHbZxrka2uZ6jB1inYsH&username={}&password={}".format(login, password)
+  url = "https://oauth.vk.com/token?grant_type=password&client_id=2274003&client_secret=hHbZxrka2uZ6jB1inYsH&username={}&password={}".format(urllib.parse.quote(login), urllib.parse.quote(password))
   try:
     response = requests.get(url).json()
   except Exception as e:
