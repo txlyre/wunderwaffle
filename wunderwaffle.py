@@ -248,10 +248,11 @@ if not os.path.isfile("save.dat"):
   master_account = ()
   with open("accs.txt", "r") as fd:
     lines = list(filter(lambda line: not line.startswith("#"), fd.readlines()))
-    master_account = lines.pop(0).split(":")
+    master_account = lines.pop(0).strip().split(":")
+    
     master_account = (master_account[0], master_account[1].split(" ")[0])
     for line in lines:
-      parts = line.split(":")
+      parts = line.strip().split(":")
       accounts.append((parts[0], parts[1].split(" ")[0]))
   data_save = ""
   data = auth(*master_account)
