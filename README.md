@@ -8,3 +8,9 @@ A tiny, asynchronous, multiple account «miner» for VK Coin
 4. Fill it with accounts in format «login:password»(note that first line is master-account, but other are workers)  
 5. Run «python wunderwaffle.py»  
 6. Coins will be automatically mined by all workers and transfered to master  
+
+# Command line arguments
+Script «wunderwaffle.py» has few command line arguments:  
+- `-i` — disable autobuy (idle_mode)  
+- `-n` — disable supporting  
+- `-a val` — set the autotransfer triggering amount  
