@@ -12,6 +12,7 @@ A tiny, asynchronous, multiple account «miner» for VK Coin
 # Command line arguments
 Script «wunderwaffle.py» has few command line arguments:  
 - `-i` — disable the autobuy (idle_mode)  
+- `-m` - disable the autobuy for master (idle_main_mode)
 - `-n` — disable the supporting  
 - `-a val` — set the autotransfer triggering amount  
 
