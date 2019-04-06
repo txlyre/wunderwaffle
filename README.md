@@ -16,7 +16,7 @@ Script «wunderwaffle.py» has few command line arguments:
 - `-m` - disable the autobuy for master (idle_main_mode)
 - `-n` — disable the supporting  
 - `-d` - send all coins amount  
-- `-b name` - buy only thr specified item  
+- `-b name` - buy only the specified item  
 - `-a val` — set the autotransfer triggering amount  
 
 # Fixing some problems
