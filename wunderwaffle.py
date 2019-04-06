@@ -42,8 +42,8 @@ available_items = {
 def calc_price(price, count):
   return price if count <= 1 else round(1.3 * calc_price(price, count - 1), 3)
 
-async def execute(code):
-  proc = await asyncio.create_subprocess_shell("node -e \"var window=1;process.stdout.write(String({}))\"".format(code.replace("\"", "'")), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+async def execute(code):  
+  proc = await asyncio.create_subprocess_exec("node", "-e", "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}}; process.stdout.write(String("+code+"))", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
   stdout, stderr = await proc.communicate()
   return stdout.decode()
   
@@ -55,20 +55,18 @@ async def spawn_worker(uri, my_user_id):
     item_price = 0
     async with websockets.connect(uri) as websocket:
       while True:
-          log.info("active tasks {}/{}".format(len([task for task in asyncio.Task.all_tasks() if not task.done()]), len(asyncio.Task.all_tasks())))
           log.info("active workers {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
+    
           time.sleep(0.5)
           data = await websocket.recv()
-          if data[0] == "{":
-              data = json.loads(data)
-              log.info("id{}: get update: {}".format(my_user_id, data))
+          if data[0]== "{":
+              data = json.loads(data)             
               if "type" in data:
                   if data["type"] == "INIT":
                       dataRandom = data["randomId"]
                       dataPow = data["pow"]
                       my_items = data["items"]
                       dataPow = await execute(dataPow)
-                      
                       await send_data(websocket, "C1 {} {}".format(dataRandom, dataPow), my_user_id)
                       await send_data(websocket, "C10 {} 1".format(dataRandom), my_user_id)
           else:
@@ -143,15 +141,14 @@ async def spawn_worker(uri, my_user_id):
               await send_data(websocket, "P{} B {}".format(random.randint(1, 20), item_to_buy), my_user_id)
               log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
               item_to_buy = None
-
-          
+         
   except KeyboardInterrupt:
         log.info("^C catched")
         destroy_tasks()
         sys.exit(137)
   except Exception as e:
     log.error("error: {}".format(e))
-    time.sleep(5)
+    time.sleep(10)
     return await spawn_worker(uri, my_user_id)       
   log.errror("reached unreachable")
   time.sleep(5)
