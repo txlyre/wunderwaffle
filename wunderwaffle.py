@@ -52,7 +52,7 @@ def calc_price(price, count):
   return price if count <= 1 else round(1.3 * calc_price(price, count - 1), 3)
 
 async def execute(code):  
-  prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}}"
+  prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}, \"navigator\": { \"userAgent\": \"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/20.0 (Chrome)\"}}"
   if dukpy_available:
     return dukpy.evaljs("{};{}".format(prefix, code))
 
@@ -89,10 +89,6 @@ async def spawn_worker(uri, my_user_id):
                   my_balance = float(data[2]) / 1000
                   log.info("id{}: balance: {}".format(my_user_id, my_balance))
                   await send_data(websocket, "C10 {} 1".format(data[3]), my_user_id)
-              elif data == "BROKEN":
-                  return await spawn_worker(uri, my_user_id)
-              elif data == "NOT_ENOUGH_COINS":
-                  continue
               elif data[0] == "M" and data[1] == "I":
                 data = data.split()
                 await send_data(websocket, "C10 {} 1".format(data[1]), my_user_id)
@@ -104,7 +100,18 @@ async def spawn_worker(uri, my_user_id):
                   my_items = data["items"]
                 continue
               elif data[0] == "T" and data[1] == "R":
-                 my_balance += float(str(data).split(" ")[1]) / 1000                            
+                 my_balance += float(str(data).split(" ")[1]) / 1000                             
+              elif data[0] == "M" and data[1] == "S":
+                data = " ".join(str(data).split(" ")[1:])
+                log.warn("message: {}".format(data))
+                time.sleep(15)
+                return await spawn_worker(uri, my_user_id)     
+         
+              elif data == "BROKEN":
+                  return await spawn_worker(uri, my_user_id)
+              elif data == "NOT_ENOUGH_COINS":
+                  continue
+              
              
           if not no_support:
             some_count = random.randint(100, 1000)
@@ -190,10 +197,12 @@ async def dispatch_worker(token, user_id):
 
     app_key = response_json["response"]["object"]["mobile_iframe_url"].split("?")[1]
      
-    password = (user_id - 109) if (user_id % 2) else (user_id - 15)
-    n = user_id % 16
+    #password = (user_id - 109) if (user_id % 2) else (user_id - 15)
+    password = user_id - 1
+    n = user_id % 32
 
-    domain = "bagosi-go-go.vkforms.ru" if n > 7 else "coin.w5.vkforms.ru"
+    #domain = "bagosi-go-go.vkforms.ru" if n > 7 else "coin.w5.vkforms.ru"
+    domain = "coin-without-bugs.vkforms.ru"
     uri = "wss://{}/channel/{}?{}&pass={}".format(domain, n, app_key, password)
 
     while True:
