@@ -49,7 +49,7 @@ available_items = {
 }
 
 def calc_price(price, count):
-  return price if count <= 1 else round(1.3 * calc_price(price, count - 1), 3)
+  return price if count <= 1 else math.ceil(1.3 * calc_price(price, count - 1))
 
 async def execute(code):  
   prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}, \"navigator\": { \"userAgent\": \"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/20.0 (Chrome)\"}}"
@@ -105,11 +105,11 @@ async def spawn_worker(uri, my_user_id):
                 data = " ".join(str(data).split(" ")[1:])
                 log.warn("message: {}".format(data))
                 time.sleep(15)
-                return await spawn_worker(uri, my_user_id)     
-         
+                return await spawn_worker(uri, my_user_id)              
               elif data == "BROKEN":
                   return await spawn_worker(uri, my_user_id)
               elif data == "NOT_ENOUGH_COINS":
+                  log.warn("balance is too low")
                   continue
               
              
