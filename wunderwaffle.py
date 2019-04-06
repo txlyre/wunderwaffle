@@ -11,6 +11,13 @@ import math
 import urllib.parse
 import getopt
 
+dukpy_available = True
+try:
+  import dukpy
+except ModuleNotFoundError:
+  dukpy_available = False
+  log.info("no dukpy found, using Node.js")
+
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger()
 
@@ -43,7 +50,11 @@ def calc_price(price, count):
   return price if count <= 1 else round(1.3 * calc_price(price, count - 1), 3)
 
 async def execute(code):  
-  proc = await asyncio.create_subprocess_exec("node", "-e", "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}}; process.stdout.write(String("+code+"))", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+  prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}}"
+  if dukpy_available:
+    return dukpy.evaljs("{};{}".format(prefix, code))
+
+  proc = await asyncio.create_subprocess_exec("node", "-e", "{};process.stdout.write(String({}))".format(prefix, code), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
   stdout, stderr = await proc.communicate()
   return stdout.decode()
   
