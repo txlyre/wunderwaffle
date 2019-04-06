@@ -27,6 +27,7 @@ if os.name == "nt":
 idle_mode = False
 idle_main_mode = False
 no_support = False
+drop_all = False
 drop_amount = 10000
 tasks = []
 slave_ids = []
@@ -113,8 +114,8 @@ async def spawn_worker(uri, my_user_id):
               await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
               log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
            
-          if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:
-            count = random.randint(drop_amount / 10, drop_amount)
+          if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:            
+            count = drop_amount if drop_all else random.randint(drop_amount / 10, drop_amount)
             await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
             log.info("id{}: send out to master {} coins".format(my_user_id, count))            
 
@@ -231,7 +232,7 @@ print("by @txlyre, www: txlyre.website\n")
 
 if len(sys.argv) >= 2:
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "inma:")
+    opts, args = getopt.getopt(sys.argv[1:], "inmda:")
   except getopt.GetoptError as e:
     log.warning("{}".format(e))
   
@@ -245,6 +246,9 @@ if len(sys.argv) >= 2:
     elif name == "-m":
       idle_main_mode = True
       log.info("idle_main_mode enabled")
+    elif name == "-d":
+      drop_all = True
+      log.info("drop_all enabled")
     elif name == "-a":
       try:
         drop_amount = round(float(value), 3)
