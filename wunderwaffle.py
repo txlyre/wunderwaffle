@@ -98,7 +98,6 @@ async def spawn_worker(uri, my_user_id):
                 my_balance = float(data["score"]) / 1000
                 if "items" in data:
                   my_items = data["items"]
-                continue
               elif data[0] == "T" and data[1] == "R":
                  my_balance += float(str(data).split(" ")[1]) / 1000                             
               elif data[0] == "M" and data[1] == "S":
