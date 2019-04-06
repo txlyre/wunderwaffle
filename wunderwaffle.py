@@ -29,6 +29,7 @@ idle_main_mode = False
 no_support = False
 drop_all = False
 drop_amount = 10000
+buy_only = None
 tasks = []
 slave_ids = []
 tasks_list = []
@@ -119,7 +120,19 @@ async def spawn_worker(uri, my_user_id):
             await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
             log.info("id{}: send out to master {} coins".format(my_user_id, count))            
 
-          if not idle_mode:
+          if buy_only:
+            if idle_main_mode and my_user_id == master_user_id:
+              continue
+            item_price = calc_price(available_items[buy_only], my_items.count(buy_only))
+            log.info("id{}: next target is {} for cost {} coins".format(my_user_id, buy_only, item_price))
+
+            if my_balance < item_price:
+              continue
+            
+            log.info("id{}: buy {} for {} coins".format(my_user_id, buy_only, item_price))
+            await send_data(websocket, "P{} B {}".format(random.randint(1, 20), buy_only), my_user_id)
+
+          if not idle_mode and not buy_only:
             if idle_main_mode and my_user_id == master_user_id:
               continue
             price_a = calc_price(available_items["cursor"], my_items.count("cursor"))
@@ -232,7 +245,7 @@ print("by @txlyre, www: txlyre.website\n")
 
 if len(sys.argv) >= 2:
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "inmda:")
+    opts, args = getopt.getopt(sys.argv[1:], "inmdb:a:")
   except getopt.GetoptError as e:
     log.warning("{}".format(e))
   
@@ -249,6 +262,12 @@ if len(sys.argv) >= 2:
     elif name == "-d":
       drop_all = True
       log.info("drop_all enabled")
+    elif name == "-b":
+      if value not in available_items:
+        log.warning("invalid value for '-b': {}".format(value))
+        continue
+      buy_only = value
+      log.info("buy_only setted to {}".format(buy_only))
     elif name == "-a":
       try:
         drop_amount = round(float(value), 3)
