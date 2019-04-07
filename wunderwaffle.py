@@ -49,7 +49,7 @@ available_items = {
 }
 
 def calc_price(price, count):
-  return price if count <= 1 else math.ceil(1.3 * calc_price(price, count - 1))
+  return price / 1000 if count <= 1 else math.ceil(1.3 * calc_price(price, count - 1))
 
 async def execute(code):  
   prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}, \"navigator\": { \"userAgent\": \"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/20.0 (Chrome)\"}}"
@@ -61,6 +61,7 @@ async def execute(code):
   return stdout.decode()
   
 async def spawn_worker(uri, my_user_id):
+  log.info("spawn worker vk.com/id{}".format(my_user_id))
   try:
     my_balance = 0
     my_items = []
@@ -68,7 +69,7 @@ async def spawn_worker(uri, my_user_id):
     item_price = 0
     async with websockets.connect(uri) as websocket:
       while True:
-          log.info("active workers {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
+          log.info("active workers' tasks {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
     
           time.sleep(0.5)
           data = await websocket.recv()
@@ -107,10 +108,10 @@ async def spawn_worker(uri, my_user_id):
                 return await spawn_worker(uri, my_user_id)              
               elif data == "BROKEN":
                   return await spawn_worker(uri, my_user_id)
-              elif data == "NOT_ENOUGH_COINS":
-                  log.warn("balance is too low")
-                  continue
-              
+              elif data[0] == "R":
+                  data = " ".join(str(data).split(" ")[1:])
+                  log.warn("{}".format(data))
+                  continue             
              
           if not no_support:
             some_count = random.randint(100, 1000)
@@ -120,11 +121,13 @@ async def spawn_worker(uri, my_user_id):
                 continue
               await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
               log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
-           
+              continue
+
           if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:            
             count = drop_amount if drop_all else random.randint(drop_amount / 10, drop_amount)
             await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
             log.info("id{}: send out to master {} coins".format(my_user_id, count))            
+            continue
 
           if buy_only:
             if idle_main_mode and my_user_id == master_user_id:
@@ -137,7 +140,7 @@ async def spawn_worker(uri, my_user_id):
             
             log.info("id{}: buy {} for {} coins".format(my_user_id, buy_only, item_price))
             await send_data(websocket, "P{} B {}".format(random.randint(1, 20), buy_only), my_user_id)
-
+           
           if not idle_mode and not buy_only:
             if idle_main_mode and my_user_id == master_user_id:
               continue
@@ -161,8 +164,7 @@ async def spawn_worker(uri, my_user_id):
             if price_c / price_b >= 30:
               item_to_buy = "cpu"
             if price_b / price_a >= 3:
-              item_to_buy = "cursor"
-              
+              item_to_buy = "cursor"              
 
             item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
             log.info("id{}: next target is {} for cost {} coins".format(my_user_id, item_to_buy, item_price))
@@ -172,7 +174,7 @@ async def spawn_worker(uri, my_user_id):
               await send_data(websocket, "P{} B {}".format(random.randint(1, 20), item_to_buy), my_user_id)
               log.info("id{}: buy {} for {} coins".format(my_user_id, item_to_buy, item_price))
               item_to_buy = None
-         
+            
   except KeyboardInterrupt:
         log.info("^C catched")
         destroy_tasks()
@@ -186,8 +188,16 @@ async def spawn_worker(uri, my_user_id):
   return await spawn_worker(uri, my_user_id)       
             
 async def dispatch_worker(token, user_id):
+    log.info("dispatch worker vk.com/id{}".format(user_id))
     url = "https://api.vk.com/method/execute.resolveScreenName?access_token={}&v=5.55&screen_name=app6915965_-176897109&owner_id=-176897109&func_v=3".format(token)
-    response_json = requests.get(url).json()
+    try:
+      response_json = requests.get(url).json()
+    except Exception as e:
+      log.error("failed to dispatch worker vk.com/id{}".format(user_id))
+      log.eror("request failed: {}".format(e))
+      time.sleep(5)
+      return await dispatch_worker(url, user_id)
+
     if "error" in response_json:
       log.error("failed to dispatch worker vk.com/id{}".format(user_id))
       log.error("API answer: {}".format(response_json))
@@ -203,7 +213,7 @@ async def dispatch_worker(token, user_id):
     #domain = "bagosi-go-go.vkforms.ru" if n > 7 else "coin.w5.vkforms.ru"
     domain = "coin-without-bugs.vkforms.ru"
     uri = "wss://{}/channel/{}?{}&pass={}".format(domain, n, app_key, password)
-
+    
     while True:
       try:
         await spawn_worker(uri, user_id)
