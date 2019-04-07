@@ -35,7 +35,7 @@ slave_ids = []
 tasks_list = []
 
 async def send_data(websocket, data, my_user_id):
-  log.info("id{}: send: {}".format(my_user_id, data))
+  log.info("id{}: to: {}".format(my_user_id, data))
   await websocket.send(data)
 
 available_items = {
@@ -69,8 +69,6 @@ async def spawn_worker(uri, my_user_id):
     item_price = 0
     async with websockets.connect(uri) as websocket:
       while True:
-          log.info("active workers' tasks {}/{}".format(len([task for task in tasks_list if not task.done()]), len(tasks_list)))
-    
           time.sleep(0.5)
           data = await websocket.recv()
           if data[0]== "{":
@@ -84,7 +82,7 @@ async def spawn_worker(uri, my_user_id):
                       await send_data(websocket, "C1 {} {}".format(dataRandom, dataPow), my_user_id)
                       await send_data(websocket, "C10 {} 1".format(dataRandom), my_user_id)
           else:
-              log.info("id{}: get: {}".format(my_user_id, data))
+              log.info("id{}: from: {}".format(my_user_id, data))
               if data[0] == "S":
                   data = data.split()
                   my_balance = float(data[2]) / 1000
@@ -100,7 +98,9 @@ async def spawn_worker(uri, my_user_id):
                 if "items" in data:
                   my_items = data["items"]
               elif data[0] == "T" and data[1] == "R":
-                 my_balance += float(str(data).split(" ")[1]) / 1000                             
+                 data = float(str(data).split(" ")[1]) / 1000 
+                 my_balance += data
+                 log.info("id{}: income {} coins".format(my_user_id, data))                       
               elif data[0] == "M" and data[1] == "S":
                 data = " ".join(str(data).split(" ")[1:])
                 log.warning("message: {}".format(data))
@@ -110,7 +110,7 @@ async def spawn_worker(uri, my_user_id):
                   return await spawn_worker(uri, my_user_id)
               elif data[0] == "R":
                   data = " ".join(str(data).split(" ")[1:])
-                  log.warn("{}".format(data))
+                  log.warning("{}".format(data))
                   continue             
              
           if not no_support:
@@ -119,13 +119,13 @@ async def spawn_worker(uri, my_user_id):
               target = random.choice(slave_ids)
               if target == my_user_id:
                 continue
-              await send_data(websocket, "P T {} {}".format(target, some_count), my_user_id)       
+              await send_data(websocket, "P T {} {}".format(target, some_count * 1000), my_user_id)       
               log.info("id{}: supporting {} for {} coins".format(my_user_id, target, some_count))
               continue
 
           if my_balance > drop_amount and my_user_id != master_user_id and random.randint(1,10)%2:            
             count = drop_amount if drop_all else random.randint(drop_amount / 10, drop_amount)
-            await send_data(websocket, "P T {} {}".format(master_user_id, count), my_user_id)          
+            await send_data(websocket, "P T {} {}".format(master_user_id, count * 1000), my_user_id)          
             log.info("id{}: send out to master {} coins".format(my_user_id, count))            
             continue
 
