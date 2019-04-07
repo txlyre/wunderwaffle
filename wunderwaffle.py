@@ -194,7 +194,7 @@ async def dispatch_worker(token, user_id):
       response_json = requests.get(url).json()
     except Exception as e:
       log.error("failed to dispatch worker vk.com/id{}".format(user_id))
-      log.eror("request failed: {}".format(e))
+      log.error("request failed: {}".format(e))
       time.sleep(5)
       return await dispatch_worker(url, user_id)
 
