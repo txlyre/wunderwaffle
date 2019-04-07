@@ -103,7 +103,7 @@ async def spawn_worker(uri, my_user_id):
                  my_balance += float(str(data).split(" ")[1]) / 1000                             
               elif data[0] == "M" and data[1] == "S":
                 data = " ".join(str(data).split(" ")[1:])
-                log.warn("message: {}".format(data))
+                log.warning("message: {}".format(data))
                 time.sleep(15)
                 return await spawn_worker(uri, my_user_id)              
               elif data == "BROKEN":
@@ -288,7 +288,7 @@ if len(sys.argv) >= 2:
       log.info("buy_only setted to {}".format(buy_only))
     elif name == "-a":
       try:
-        drop_amount = round(float(value), 3)
+        drop_amount = int(value)
       except ValueError:
         log.warning("invalid value for '-a': {}".format(value))
         continue
