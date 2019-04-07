@@ -16,7 +16,7 @@ try:
   import dukpy
 except ModuleNotFoundError:
   dukpy_available = False
-  log.info("no dukpy found, using Node.js")
+  log.info("no dukpy found, using Node.js instead")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger()
@@ -24,6 +24,7 @@ log = logging.getLogger()
 if os.name == "nt":
   asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
+verbose = False
 idle_mode = False
 idle_main_mode = False
 no_support = False
@@ -35,7 +36,8 @@ slave_ids = []
 tasks_list = []
 
 async def send_data(websocket, data, my_user_id):
-  log.info("id{}: to: {}".format(my_user_id, data))
+  if verbose:
+    log.info("id{}: to: {}".format(my_user_id, data))
   await websocket.send(data)
 
 available_items = {
@@ -61,7 +63,8 @@ async def execute(code):
   return stdout.decode()
   
 async def spawn_worker(uri, my_user_id):
-  log.info("spawn worker vk.com/id{}".format(my_user_id))
+  if verbose:
+    log.info("spawn worker vk.com/id{}".format(my_user_id))
   try:
     my_balance = 0
     my_items = []
@@ -82,11 +85,13 @@ async def spawn_worker(uri, my_user_id):
                       await send_data(websocket, "C1 {} {}".format(dataRandom, dataPow), my_user_id)
                       await send_data(websocket, "C10 {} 1".format(dataRandom), my_user_id)
           else:
-              log.info("id{}: from: {}".format(my_user_id, data))
+              if verbose:
+                log.info("id{}: from: {}".format(my_user_id, data))
               if data[0] == "S":
                   data = data.split()
                   my_balance = float(data[2]) / 1000
-                  log.info("id{}: balance: {}".format(my_user_id, my_balance))
+                  if verbose:
+                    log.info("id{}: balance: {}".format(my_user_id, my_balance))
                   await send_data(websocket, "C10 {} 1".format(data[3]), my_user_id)
               elif data[0] == "M" and data[1] == "I":
                 data = data.split()
@@ -97,11 +102,16 @@ async def spawn_worker(uri, my_user_id):
                 my_balance = float(data["score"]) / 1000
                 if "items" in data:
                   my_items = data["items"]
+                  if verbose:
+                    log.info("id{}: items: {}".format(",".join(my_items)))
+
+                if verbose:
+                    log.info("id{}: balance: {}".format(my_user_id, my_balance))              
               elif data[0] == "T" and data[1] == "R":
                  data = float(str(data).split(" ")[1]) / 1000 
                  my_balance += data
                  log.info("id{}: income {} coins".format(my_user_id, data))                       
-              elif data[0] == "M" and data[1] == "S":
+              elif data[0] == "M" and data[1] == "S" and verbose:
                 data = " ".join(str(data).split(" ")[1:])
                 log.warning("message: {}".format(data))
                 time.sleep(15)
@@ -133,7 +143,8 @@ async def spawn_worker(uri, my_user_id):
             if idle_main_mode and my_user_id == master_user_id:
               continue
             item_price = calc_price(available_items[buy_only], my_items.count(buy_only))
-            log.info("id{}: next target is {} for cost {} coins".format(my_user_id, buy_only, item_price))
+            if verbose:
+              log.info("id{}: next target is {} for cost {} coins".format(my_user_id, buy_only, item_price))
 
             if my_balance < item_price:
               continue
@@ -167,7 +178,8 @@ async def spawn_worker(uri, my_user_id):
               item_to_buy = "cursor"              
 
             item_price = calc_price(available_items[item_to_buy], my_items.count(item_to_buy))
-            log.info("id{}: next target is {} for cost {} coins".format(my_user_id, item_to_buy, item_price))
+            if verbose:
+              log.info("id{}: next target is {} for cost {} coins".format(my_user_id, item_to_buy, item_price))
             if my_balance > 0 and item_to_buy:                   
               if my_balance < item_price:
                 continue
@@ -188,7 +200,8 @@ async def spawn_worker(uri, my_user_id):
   return await spawn_worker(uri, my_user_id)       
             
 async def dispatch_worker(token, user_id):
-    log.info("dispatch worker vk.com/id{}".format(user_id))
+    if verbose:
+      log.info("dispatch worker vk.com/id{}".format(user_id))
     url = "https://api.vk.com/method/execute.resolveScreenName?access_token={}&v=5.55&screen_name=app6915965_-176897109&owner_id=-176897109&func_v=3".format(token)
     try:
       response_json = requests.get(url).json()
@@ -245,7 +258,8 @@ def destroy_tasks():
   global tasks_list
   for task in tasks_list:
     task.cancel()
-    log.info("destroyed task")
+    if verbose:
+      log.info("destroyed task")
 
 async def run_tasks(task_list):
   global tasks_list
@@ -263,7 +277,7 @@ print("by @txlyre, www: txlyre.website\n")
 
 if len(sys.argv) >= 2:
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "inmdb:a:")
+    opts, args = getopt.getopt(sys.argv[1:], "inmdvb:a:")
   except getopt.GetoptError as e:
     log.warning("{}".format(e))
   
@@ -280,6 +294,9 @@ if len(sys.argv) >= 2:
     elif name == "-d":
       drop_all = True
       log.info("drop_all enabled")
+    elif name == "-v":
+      verbose = True
+      log.info("verbose enabled")
     elif name == "-b":
       if value not in available_items:
         log.warning("invalid value for '-b': {}".format(value))
@@ -314,12 +331,14 @@ if not os.path.isfile("save.dat"):
   data = auth(*master_account)
   master_token, master_user_id = data["access_token"], data["user_id"]
   data_save += "{} {}\n".format(master_token, master_user_id)
-  log.info("added save for master vk.com/id{}".format(master_user_id))
+  if verbose:
+    log.info("added save for master vk.com/id{}".format(master_user_id))
   for account in accounts:
     data = auth(*account)
     token, user_id = data["access_token"], data["user_id"]
     data_save += "{} {}\n".format(token, user_id)
-    log.info("added save for worker vk.com/id{}".format(user_id))
+    if verbose:
+      log.info("added save for worker vk.com/id{}".format(user_id))
   with open("save.dat", "w") as fd:
     fd.write(data_save.strip())
   
@@ -332,7 +351,8 @@ with open("save.dat", "r") as fd:
   master_token, master_user_id = master_account[0], int(master_account[1])
   
   tasks.append(dispatch_worker(master_token, master_user_id))
-  log.info("added master vk.com/id{}".format(master_user_id))
+  if verbose:
+    log.info("added master vk.com/id{}".format(master_user_id))
 
   for line in lines:
     parts = line.strip().split(" ")
@@ -342,7 +362,11 @@ with open("save.dat", "r") as fd:
     token, user_id = parts[0], int(parts[1])
     tasks.append(dispatch_worker(token, user_id))
     slave_ids.append(user_id)
-    log.info("added worker vk.com/id{}".format(user_id))
+    if verbose:
+      log.info("added worker vk.com/id{}".format(user_id))
+
+if not verbose:
+  log.info("account(s) loaded")
 
 try:
   asyncio.get_event_loop().run_until_complete(run_tasks(tasks))
