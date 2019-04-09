@@ -366,7 +366,10 @@ with open("save.dat", "r") as fd:
       log.info("added worker vk.com/id{}".format(user_id))
 
 if not verbose:
-  log.info("account(s) loaded")
+  if len(slave_ids) == 0:
+    log.info("account loaded")
+  else:
+    log.info(str(len(slave_ids) + 1) + " accounts loaded")
 
 try:
   asyncio.get_event_loop().run_until_complete(run_tasks(tasks))
