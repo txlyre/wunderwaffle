@@ -151,7 +151,8 @@ async def spawn_worker(uri, my_user_id):
             
             log.info("id{}: buy {} for {} coins".format(my_user_id, buy_only, item_price))
             await send_data(websocket, "P{} B {}".format(random.randint(1, 20), buy_only), my_user_id)
-           
+            continue
+
           if not idle_mode and not buy_only:
             if idle_main_mode and my_user_id == master_user_id:
               continue
@@ -369,7 +370,7 @@ if not verbose:
   if len(slave_ids) == 0:
     log.info("account loaded")
   else:
-    log.info(str(len(slave_ids) + 1) + " accounts loaded")
+    log.info("{} accounts loaded".format(len(slave_ids) + 1))
 
 try:
   asyncio.get_event_loop().run_until_complete(run_tasks(tasks))
