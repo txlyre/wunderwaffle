@@ -54,7 +54,7 @@ def calc_price(price, count):
   return price / 1000 if count <= 1 else math.ceil(1.3 * calc_price(price, count - 1))
 
 async def execute(code):  
-  prefix = "var window={\"parseInt\": true, \"location\": {\"host\": \"iyiyiyiyi\"}, \"navigator\": { \"userAgent\": \"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/20.0 (Chrome)\"}}"
+  prefix = "var window={\"parseInt\": true, \"Math\": Math, \"WebSocket\": 1, \"location\": {\"host\": \"iyiyiyiyi\"}, \"navigator\": { \"userAgent\": \"Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/20.0 (Chrome)\"}}"
   if dukpy_available:
     return dukpy.evaljs("{};{}".format(prefix, code))
 
